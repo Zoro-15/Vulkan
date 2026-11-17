@@ -7,30 +7,37 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build_android:
     name: Build Android APK
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: "recursive"
+          submodules: recursive
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
+          distribution: temurin
 
       - name: Build Android
+        working-directory: android
         run: |
-          cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Show generated APKs
+        if: always()
+        run: find android -type f -name '*.apk' -print
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: android/examples/*/build/outputs/apk/debug/*.apk
+          path: android/**/build/outputs/apk/**/*.apk
+          if-no-files-found: error
