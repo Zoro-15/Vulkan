@@ -1,0 +1,65 @@
+name: Bundle Release APKs into Zip
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to bundle (leave empty for latest release)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: Bundle Release APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine Release Tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG=$(gh release list -R "${{ github.repository }}" --limit 1 --json tagName -q '.[0].tagName')
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::No release tag found!"
+            exit 1
+          fi
+          echo "Target Release Tag: $TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Download APKs from Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p apks
+          echo "Downloading *.apk assets from release '$TAG'..."
+          gh release download "$TAG" --pattern "*.apk" --dir apks -R "${{ github.repository }}"
+          
+          APK_COUNT=$(ls -1 apks/*.apk 2>/dev/null | wc -l)
+          echo "Downloaded $APK_COUNT APK files."
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "::error::No APK files found in release '$TAG'!"
+            exit 1
+          fi
+
+      - name: Create Zip Bundle
+        run: |
+          echo "Compressing APKs into all-vulkan-apks.zip..."
+          cd apks
+          zip -9 -r ../all-vulkan-apks.zip .
+          cd ..
+          ls -lh all-vulkan-apks.zip
+
+      - name: Upload Zip to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Uploading all-vulkan-apks.zip to release '$TAG'..."
+          gh release upload "$TAG" all-vulkan-apks.zip --clobber -R "${{ github.repository }}"
+          echo "Successfully attached all-vulkan-apks.zip to release '$TAG'!"
