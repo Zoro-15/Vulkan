@@ -31,6 +31,11 @@ allprojects {
                     if (namespace == null) {
                         namespace "de.saschawillems." + project.group
                     }
+                    buildTypes {
+                        release {
+                            signingConfig signingConfigs.debug
+                        }
+                    }
                 }
             }
         }
@@ -40,8 +45,8 @@ allprojects {
 ext {
     abiFilters = "arm64-v8a"
     minSdkVersion = 21
-    targetSdkVersion = 26
-    compileSdkVersion = 26
+    targetSdkVersion = 34
+    compileSdkVersion = 34
     shaderPath = '../../../shaders/'
     assetPath = '../../../assets/'
 }

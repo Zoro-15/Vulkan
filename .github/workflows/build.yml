@@ -45,8 +45,8 @@ jobs:
             cp -v android/examples/bin/*.apk release-apks/ 2>/dev/null || true
           fi
 
-          # Collect any additional APKs, ignoring intermediate build dirs and already gathered files
-          find . -type f -name "*.apk" ! -path "*/intermediates/*" ! -path "*/release-apks/*" -exec cp -uv {} release-apks/ \;
+          # Collect any additional APKs, ignoring intermediate build dirs, unsigned APKs, and already gathered files
+          find . -type f -name "*.apk" ! -name "*-unsigned.apk" ! -path "*/intermediates/*" ! -path "*/release-apks/*" -exec cp -uv {} release-apks/ \;
 
           echo "=== Gathered APKs in release-apks/ ==="
           ls -lh release-apks/
@@ -61,6 +61,20 @@ jobs:
           echo "Compressing APKs into all-vulkan-apks.zip..."
           (cd release-apks && zip -9 -r ../all-vulkan-apks.zip .)
           ls -lh all-vulkan-apks.zip
+
+      - name: Verify APK Signatures
+        run: |
+          echo "=== Verifying APK signatures ==="
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::warning::apksigner tool not found in $ANDROID_HOME/build-tools"
+          else
+            echo "Using apksigner: $APKSIGNER"
+            for apk in release-apks/*.apk; do
+              "$APKSIGNER" verify --verbose "$apk" || { echo "::error::Signature verification failed for $apk"; exit 1; }
+            done
+            echo "All collected APKs verified successfully with valid signatures!"
+          fi
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4

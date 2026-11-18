@@ -392,7 +392,7 @@ void VulkanExampleBase::renderLoop()
 		}
 
 		// Render frame
-		if (prepared)
+		if (prepared && swapChain.swapChain != VK_NULL_HANDLE)
 		{
 			auto tStart = std::chrono::high_resolution_clock::now();
 			render();
@@ -455,7 +455,7 @@ void VulkanExampleBase::renderLoop()
 	}
 #elif defined (VK_USE_PLATFORM_OHOS)
 		// Render frame
-		if (prepared)
+		if (prepared && swapChain.swapChain != VK_NULL_HANDLE)
 		{
 			auto tStart = std::chrono::high_resolution_clock::now();
 			render();
@@ -1631,13 +1631,20 @@ void VulkanExampleBase::handleAppCommand(android_app * app, int32_t cmd)
 		LOGD("APP_CMD_INIT_WINDOW");
 		if (androidApp->window != nullptr)
 		{
-			if (vulkanExample->initVulkan()) {
-				vulkanExample->prepare();
-				assert(vulkanExample->prepared);
+			if (!vulkanExample->device) {
+				if (vulkanExample->initVulkan()) {
+					vulkanExample->prepare();
+					assert(vulkanExample->prepared);
+				}
+				else {
+					LOGE("Could not initialize Vulkan, exiting!");
+					androidApp->destroyRequested = 1;
+				}
 			}
 			else {
-				LOGE("Could not initialize Vulkan, exiting!");
-				androidApp->destroyRequested = 1;
+				vulkanExample->createSurface();
+				vulkanExample->prepared = true;
+				vulkanExample->windowResize();
 			}
 		}
 		else
@@ -1658,6 +1665,7 @@ void VulkanExampleBase::handleAppCommand(android_app * app, int32_t cmd)
 		LOGD("APP_CMD_TERM_WINDOW");
 		if (vulkanExample->prepared) {
 			vulkanExample->swapChain.cleanup();
+			vulkanExample->prepared = false;
 		}
 		break;
 	}
